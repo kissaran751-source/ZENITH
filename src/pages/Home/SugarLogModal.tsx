@@ -1,0 +1,163 @@
+import React, { useState } from "react";
+import { BottomSheet } from "../../components/BottomSheet";
+import { GlassCard, cn } from "../../components/GlassCard";
+import { PremiumButton } from "../../components/PremiumButton";
+import { format } from "date-fns";
+import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../components/Toast";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../../firebase";
+import { getTodayStr } from "../../utils/streakLogic";
+
+const SOURCES = [
+  { id: "cold_drink", icon: "🥤", label: "Cold Drink" },
+  { id: "tea", icon: "☕", label: "Tea" },
+  { id: "sweets", icon: "🍬", label: "Sweets" },
+  { id: "processed", icon: "🍕", label: "Processed" },
+];
+
+export default function SugarLogModal({ isOpen, onClose }: any) {
+  const { firebaseUser, user } = useAuth();
+  const { showToast } = useToast();
+  const [hadSugar, setHadSugar] = useState<boolean | null>(null);
+  const [sources, setSources] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const toggleSource = (id: string) => {
+    setSources((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+  };
+
+  const handleConfirm = async () => {
+    if (!firebaseUser || hadSugar === null) return;
+    if (hadSugar && sources.length === 0) {
+      showToast("Please select at least one source", "error");
+      return;
+    }
+
+    setLoading(true);
+    const today = getTodayStr();
+    try {
+      const userRef = doc(db, "users", firebaseUser.uid);
+      const logRef = doc(db, "users", firebaseUser.uid, "sugarLogs", today);
+
+      const logSnap = await getDoc(logRef);
+      if (logSnap.exists() && logSnap.data().logged) {
+        throw new Error("Already logged sugar today");
+      }
+
+      await setDoc(logRef, {
+        logged: true,
+        hadSugar,
+        sources: hadSugar ? sources : [],
+        timestamp: serverTimestamp(),
+      });
+
+      // Sugar streak updates
+      const updates: any = {};
+      if (hadSugar) {
+        updates["streaks.noSugar.broken"] = true;
+        updates["streaks.noSugar.brokenAt"] = serverTimestamp();
+        updates["streaks.noSugar.count"] = 0;
+      } else {
+        if (user?.streaks.noSugar.broken) {
+          updates["streaks.noSugar.broken"] = false;
+          updates["streaks.noSugar.brokenAt"] = null;
+          updates["streaks.noSugar.count"] = 1;
+        } else {
+          updates["streaks.noSugar.count"] = (user?.streaks.noSugar.count || 0) + 1;
+        }
+        updates["streaks.noSugar.lastChecked"] = today;
+      }
+
+      await updateDoc(userRef, updates);
+      showToast("Sugar logged successfully", "success");
+      onClose();
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Log Today's Sugar">
+      <p className="text-white/60 mb-6 font-medium">
+        {format(new Date(), "EEEE, MMM do")}
+      </p>
+
+      <h3 className="text-[17px] font-semibold text-white mb-4">
+        Did you consume sugar today?
+      </h3>
+
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <GlassCard
+          onClick={() => {
+            setHadSugar(false);
+            setSources([]);
+          }}
+          className={cn(
+            "cursor-pointer text-center py-6",
+            hadSugar === false ? "border-green-500/50 bg-green-500/10" : "",
+          )}
+        >
+          <div className="text-3xl mb-2">✨</div>
+          <div className="font-semibold text-sm text-white">
+            No, stayed clean
+          </div>
+        </GlassCard>
+
+        <GlassCard
+          onClick={() => setHadSugar(true)}
+          className={cn(
+            "cursor-pointer text-center py-6",
+            hadSugar === true ? "border-red-500/50 bg-red-500/10" : "",
+          )}
+        >
+          <div className="text-3xl mb-2">💧</div>
+          <div className="font-semibold text-sm text-white">
+            Yes, I had some
+          </div>
+        </GlassCard>
+      </div>
+
+      {hadSugar === true && (
+        <div className="mb-8">
+          <p className="text-sm text-white/50 mb-3 uppercase tracking-wider font-semibold">
+            Select Sources
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {SOURCES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => toggleSource(s.id)}
+                className={cn(
+                  "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5",
+                  sources.includes(s.id)
+                    ? "bg-red-500/20 border border-red-500/50 text-white"
+                    : "bg-white/10 border border-white/5 text-white/70",
+                )}
+              >
+                {s.icon} {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <PremiumButton
+        onClick={handleConfirm}
+        disabled={loading || hadSugar === null}
+      >
+        {loading ? "Logging..." : "Log Today"}
+      </PremiumButton>
+    </BottomSheet>
+  );
+}

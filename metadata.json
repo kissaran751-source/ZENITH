@@ -1,0 +1,8 @@
+{
+  "name": "Zenith",
+  "description": "Master Yourself. Rise Above. A semen retention and lifestyle discipline tracker.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

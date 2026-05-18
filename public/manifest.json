@@ -1,0 +1,13 @@
+{
+  "name": "Zenith - Master Yourself",
+  "short_name": "Zenith",
+  "description": "Semen retention and discipline tracker. Master yourself, rise above.",
+  "theme_color": "#3B82F6",
+  "background_color": "#080C14",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+  ]
+}

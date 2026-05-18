@@ -1,0 +1,114 @@
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  increment,
+  arrayUnion,
+} from "firebase/firestore";
+import { db } from "../firebase";
+
+export const RANKS = [
+  {
+    id: "novice",
+    label: "The Novice",
+    icon: "🌱",
+    minDay: 1,
+    maxDay: 7,
+    coins: 500,
+    color: "#8E9AA6",
+    themeColor: "rgba(142,154,166,0.2)",
+  },
+  {
+    id: "iron_will",
+    label: "Iron Will",
+    icon: "🛡️",
+    minDay: 8,
+    maxDay: 15,
+    coins: 1000,
+    color: "#B0B7BD",
+    themeColor: "rgba(176,183,189,0.2)",
+  },
+  {
+    id: "mind",
+    label: "Mind Master",
+    icon: "🔱",
+    minDay: 16,
+    maxDay: 30,
+    coins: 1500,
+    color: "#1A365D",
+    themeColor: "rgba(26,54,93,0.3)",
+  },
+  {
+    id: "aura",
+    label: "Aura Awakened",
+    icon: "🔥",
+    minDay: 31,
+    maxDay: 60,
+    coins: 2000,
+    color: "#FF6B00",
+    themeColor: "rgba(255,107,0,0.2)",
+  },
+  {
+    id: "alchemist",
+    label: "The Alchemist",
+    icon: "🦅",
+    minDay: 61,
+    maxDay: 90,
+    coins: 5000,
+    color: "#8A2BE2",
+    themeColor: "rgba(138,43,226,0.2)",
+  },
+  {
+    id: "sovereign",
+    label: "Sovereign",
+    icon: "👑",
+    minDay: 91,
+    maxDay: 150,
+    coins: 10000,
+    color: "#8B0000",
+    themeColor: "rgba(139,0,0,0.2)",
+  },
+  {
+    id: "monk",
+    label: "The Monk",
+    icon: "🪷",
+    minDay: 151,
+    maxDay: Infinity,
+    coins: 50000,
+    color: "#E2E8F0",
+    themeColor: "rgba(226,232,240,0.1)",
+  },
+];
+
+export function getRankById(id: string) {
+  return RANKS.find((r) => r.id === id) || RANKS[0];
+}
+
+export async function checkAndClaimRank(
+  firebaseUid: string,
+  currentStreak: number,
+) {
+  const userRef = doc(db, "users", firebaseUid);
+
+  try {
+    const userDoc = await getDoc(userRef);
+    const user = userDoc.data();
+    if (!user) return null;
+
+    const claimedRanks = user.rankHistory?.claimedRanks || [];
+
+    for (const rank of RANKS) {
+      if (currentStreak >= rank.minDay && !claimedRanks.includes(rank.id)) {
+        await updateDoc(userRef, {
+          coins: increment(rank.coins),
+          "rankHistory.claimedRanks": arrayUnion(rank.id),
+          "rankHistory.currentRank": rank.id,
+        });
+        return rank;
+      }
+    }
+  } catch (err) {
+    console.error("Error claiming rank: ", err);
+  }
+  return null;
+}

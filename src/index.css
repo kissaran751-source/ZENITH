@@ -1,0 +1,177 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-bg-card: var(--bg-card);
+  --color-bg-card-hover: var(--bg-card-hover);
+  --color-blue-primary: var(--blue-primary);
+  --color-blue-light: var(--blue-light);
+  --color-blue-dark: var(--blue-dark);
+  --color-green-clean: var(--green-clean);
+  --color-red-break: var(--red-break);
+  --color-gold-coin: var(--gold-coin);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sora: "Sora", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  :root {
+    /* Backgrounds */
+    --bg-primary: #080c14;
+    --bg-secondary: #0d1420;
+    --bg-tertiary: #111827;
+    --bg-card: rgba(255, 255, 255, 0.04);
+    --bg-card-hover: rgba(255, 255, 255, 0.07);
+
+    /* Glass Effect */
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-blur: blur(24px);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+    /* Blue Accent (Primary) */
+    --blue-primary: #3b82f6;
+    --blue-light: #60a5fa;
+    --blue-dark: #1d4ed8;
+    --blue-glow: rgba(59, 130, 246, 0.35);
+    --blue-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+
+    /* Text */
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.65);
+    --text-muted: rgba(255, 255, 255, 0.35);
+    --text-disabled: rgba(255, 255, 255, 0.2);
+
+    /* Status */
+    --green-clean: #22c55e;
+    --green-glow: rgba(34, 197, 94, 0.3);
+    --red-break: #ef4444;
+    --red-glow: rgba(239, 68, 68, 0.3);
+    --gold-coin: #f59e0b;
+    --gold-glow: rgba(245, 158, 11, 0.3);
+
+    /* Borders & Dividers */
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-active: rgba(59, 130, 246, 0.5);
+
+    /* Spacing */
+    --nav-height: 72px;
+    --safe-bottom: env(safe-area-inset-bottom, 16px);
+
+    /* Border Radius */
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 22px;
+    --radius-xl: 28px;
+    --radius-pill: 999px;
+  }
+}
+
+@layer utilities {
+  .text-display {
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+  .text-hero {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -1.5px;
+  }
+  .text-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .text-subtitle {
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .text-body {
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+  .text-caption {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+  .text-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .bg-glass {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+  }
+  .border-glass {
+    border: 1px solid var(--glass-border);
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: "DM Sans", sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-sora {
+  font-family: "Sora", sans-serif;
+}
+
+@keyframes cardShimmer {
+  0%   { transform: translateX(-150%) skewX(-12deg); opacity:0; }
+  30%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translateX(250%) skewX(-12deg); opacity:0; }
+}
+@keyframes coinPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.5), 0 0 40px rgba(245,158,11,0.2); }
+  50%       { box-shadow: 0 0 35px rgba(245,158,11,0.8), 0 0 70px rgba(245,158,11,0.4); }
+}
+@keyframes rankGlow {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
+@keyframes floatUp {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
+@keyframes shimmerBar {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes badgeReveal {
+  0%   { transform: scale(0.5) rotate(-10deg); opacity:0; }
+  60%  { transform: scale(1.1) rotate(2deg); }
+  100% { transform: scale(1) rotate(0deg); opacity:1; }
+}

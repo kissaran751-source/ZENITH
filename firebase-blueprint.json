@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "MetaConfig": {
+      "title": "MetaConfig",
+      "description": "Global configuration",
+      "type": "object",
+      "properties": {
+        "lastUid": { "type": "number" },
+        "adminUid": { "type": "string" }
+      },
+      "required": ["lastUid", "adminUid"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile and state",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "App UID (1001, etc)" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "object", "description": "Timestamp" },
+        "theme": { "type": "string", "enum": ["dark", "light"] },
+        "coins": { "type": "number" },
+        "onboardingDone": { "type": "boolean" },
+        "onboardingScore": { "type": "number" },
+        "onboardingAnswers": { "type": "object" },
+        "streaks": { "type": "object" },
+        "loginStreak": { "type": "object" },
+        "rankHistory": { "type": "object" },
+        "streakFreezes": { "type": "number" },
+        "auraLevel": { "type": "number" }
+      },
+      "required": ["uid", "name", "email", "createdAt", "theme", "coins", "onboardingDone", "streaks", "loginStreak", "rankHistory", "streakFreezes", "auraLevel"]
+    },
+    "DailyLog": {
+      "title": "DailyLog",
+      "description": "Daily check-in log",
+      "type": "object",
+      "properties": {
+        "checkedIn": { "type": "boolean" },
+        "noMasturbation": { "type": "boolean" },
+        "noSex": { "type": "boolean" },
+        "timestamp": { "type": "object", "description": "Timestamp" }
+      },
+      "required": ["checkedIn", "noMasturbation", "noSex", "timestamp"]
+    },
+    "SugarLog": {
+      "title": "SugarLog",
+      "description": "Daily sugar log",
+      "type": "object",
+      "properties": {
+        "logged": { "type": "boolean" },
+        "hadSugar": { "type": "boolean" },
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "object", "description": "Timestamp" }
+      },
+      "required": ["logged", "hadSugar", "sources", "timestamp"]
+    },
+    "CoinTransaction": {
+      "title": "CoinTransaction",
+      "description": "Coin transaction history",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "object" }
+      },
+      "required": ["type", "amount", "description", "timestamp"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Task available to users to earn coins",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "pricePerUnit": { "type": "number" },
+        "unit": { "type": "string" },
+        "hasSlider": { "type": "boolean" },
+        "sliderMin": { "type": "number" },
+        "sliderMax": { "type": "number" },
+        "sliderLabel": { "type": "string" },
+        "requiresApproval": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "object" },
+        "createdBy": { "type": "string" }
+      }
+    },
+    "Request": {
+       "title": "Request",
+       "description": "Task completion request",
+       "type": "object",
+       "properties": {
+          "uid": { "type": "string" },
+          "firebaseUid": { "type": "string" },
+          "taskId": { "type": "string" },
+          "taskName": { "type": "string" },
+          "sliderValue": { "type": "number" },
+          "coinAmount": { "type": "number" },
+          "status": { "type": "string" },
+          "note": { "type": "string" },
+          "createdAt": { "type": "object" },
+          "processedAt": { "type": "object" },
+          "processedBy": { "type": "string" }
+       }
+    },
+    "Gift": {
+       "title": "Gift",
+       "description": "Gifted coins",
+       "type": "object",
+       "properties": {
+          "toUid": { "type": "string" },
+          "toFirebaseUid": { "type": "string" },
+          "coins": { "type": "number" },
+          "note": { "type": "string" },
+          "sentAt": { "type": "object" },
+          "claimed": { "type": "boolean" },
+          "claimedAt": { "type": "object" }
+       }
+    }
+  },
+  "firestore": {
+    "/meta/{doc}": {
+      "schema": { "$ref": "#/entities/MetaConfig" },
+      "description": "Global configs like latest assigned user ID."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile data."
+    },
+    "/users/{userId}/dailyLogs/{date}": {
+      "schema": { "$ref": "#/entities/DailyLog" },
+      "description": "Daily check in records."
+    },
+    "/users/{userId}/sugarLogs/{date}": {
+      "schema": { "$ref": "#/entities/SugarLog" },
+      "description": "Sugar intake records."
+    },
+    "/users/{userId}/coinTransactions/{txId}": {
+      "schema": { "$ref": "#/entities/CoinTransaction" },
+      "description": "Ledger of coins earned/spent."
+    },
+    "/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Available tasks for coins."
+    },
+    "/requests/{requestId}": {
+      "schema": { "$ref": "#/entities/Request" },
+      "description": "Requests made by users to get coins from tasks."
+    },
+    "/gifts/{giftId}": {
+       "schema": { "$ref": "#/entities/Gift" },
+       "description": "Gifts given to users."
+    }
+  }
+}
