@@ -68,7 +68,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    handleSetUser(getGuestUser());
+    const currentUser = getGuestUser();
+    if (!localStorage.getItem("migration_18_day_update_01")) {
+      currentUser.streaks.noMasturbation = { ...currentUser.streaks.noMasturbation, count: 18, broken: false };
+      currentUser.streaks.noSex = { ...currentUser.streaks.noSex, count: 18, broken: false };
+      currentUser.streaks.noSugar = { ...currentUser.streaks.noSugar, count: 2, broken: false };
+      
+      currentUser.rankHistory = {
+        currentRank: "mind",
+        claimedRanks: ["novice", "iron_will", "mind"]
+      };
+      currentUser.coins = Math.max(currentUser.coins || 0, 3000);
+      
+      localStorage.setItem("migration_18_day_update_01", "1");
+    }
+    handleSetUser(currentUser);
     setLoading(false);
   }, []);
 
