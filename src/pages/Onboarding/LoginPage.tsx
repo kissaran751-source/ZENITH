@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  EmailAuthProvider,
+  linkWithCredential
 } from 'firebase/auth';
 import {
   doc, getDoc, getDocs, collection,
@@ -75,10 +77,23 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      const uid  = await getNextUid();
-      await createUserDoc(cred.user.uid, uid, form.name, form.email);
-      showToast("Profile created! Welcome to Zenith.", "success");
+      const user = auth.currentUser;
+      if (user && user.isAnonymous) {
+        const credential = EmailAuthProvider.credential(form.email, form.password);
+        await linkWithCredential(user, credential);
+        await updateDoc(doc(db, 'users', user.uid), {
+          name: form.name,
+          email: form.email,
+          role: form.email === ADMIN_EMAIL ? 'SUPER_ADMIN' : 'USER',
+          adminAccess: form.email === ADMIN_EMAIL
+        });
+        showToast("Account protected successfully!", "success");
+      } else {
+        const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
+        const uid  = await getNextUid();
+        await createUserDoc(cred.user.uid, uid, form.name, form.email);
+        showToast("Profile created! Welcome to Zenith.", "success");
+      }
       navigate("/");
     } catch (e: any) {
       setError(e.message.replace('Firebase: ', ''));
@@ -125,6 +140,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] pt-16 flex flex-col relative text-white" style={{ fontFamily: 'inherit' }}>
+      <button 
+        onClick={() => navigate(-1)} 
+        className="absolute top-4 left-4 p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors z-20 cursor-pointer"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/70"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+
       {/* Background glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80vw] h-[80vw] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
 

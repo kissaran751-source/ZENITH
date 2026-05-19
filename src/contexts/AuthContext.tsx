@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { auth, db, isFirebaseConfigured } from "../firebase";
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { onAuthStateChanged, User as FirebaseUser, signInAnonymously } from "firebase/auth";
+import { doc, getDoc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 
 export interface AppUser {
   uid: string;
@@ -73,10 +73,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (fUser) => {
       setFirebaseUser(fUser);
       if (!fUser) {
-        setUser(null);
-        setLoading(false);
+        signInAnonymously(auth).catch((error) => {
+          console.error("Anonymous authentication failed", error);
+          setLoading(false);
+        });
         return;
       }
+
+      // Ensure user doc exists
+      const userRef = doc(db, "users", fUser.uid);
+      getDoc(userRef).then(async (docSnap) => {
+        if (!docSnap.exists()) {
+          const metaRef = doc(db, 'system', 'metadata');
+          const metaSnap = await getDoc(metaRef);
+          let nextUidNum = 1000;
+          if (metaSnap.exists()) {
+            nextUidNum = (metaSnap.data().lastUid || 1000) + 1;
+          }
+          await setDoc(metaRef, { lastUid: nextUidNum, adminUid: "1000" }, { merge: true });
+          
+          await setDoc(userRef, {
+            uid: String(nextUidNum),
+            name: "Seeker",
+            email: "",
+            role: "USER",
+            adminAccess: false,
+            createdAt: serverTimestamp(),
+            theme: "dark",
+            coins: 0,
+            onboardingDone: true,
+            streaks: {
+              noMasturbation: { count: 0, lastChecked: "", broken: false, brokenAt: null },
+              noSex:          { count: 0, lastChecked: "", broken: false, brokenAt: null },
+              noSugar:        { count: 0, lastChecked: "", broken: false, brokenAt: null },
+            },
+            loginStreak: { count: 0, lastLogin: "", claimedDays: [] },
+            rankHistory: { currentRank: "novice", claimedRanks: ["novice"] },
+            auraLevel: 0,
+            streakFreezes: 0,
+          });
+        }
+      });
 
       // Listen to user document in Firestore
       const unsubscribeDoc = onSnapshot(

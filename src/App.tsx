@@ -57,10 +57,11 @@ function ProtectedLayout() {
   }
 
   if (!user) {
-    // If auth is loaded but there is no user document in Firestore,
-    // their account might be incomplete. We force them back to login.
-    auth.signOut();
-    return <Navigate to="/login" replace />;
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-500" size={40} />
+      </div>
+    );
   }
 
   if (!initDone) {

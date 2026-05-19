@@ -91,11 +91,20 @@ export default function ProfilePage() {
           {format(user.createdAt?.toDate() || new Date(), "MMMM yyyy")}
         </div>
 
-        <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-blue-500/15 rounded-full border border-blue-500/30">
-          <span className="text-blue-400 text-[13px] font-semibold">
-            🎯 Discipline Score: {user.onboardingScore}/100
-          </span>
-        </div>
+        {user.email ? (
+          <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-blue-500/15 rounded-full border border-blue-500/30">
+            <span className="text-blue-400 text-[13px] font-semibold">
+              📧 {user.email}
+            </span>
+          </div>
+        ) : (
+          <button
+            onClick={() => navigate("/login")}
+            className="inline-flex items-center gap-2 mt-4 px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-500 rounded-full shadow-lg hover:shadow-blue-500/30 transition-all font-sora text-[14px] font-semibold text-white"
+          >
+            <Shield size={16} /> Protect Account (Login)
+          </button>
+        )}
       </div>
 
       <GlassCard className="mx-4 mb-6 !p-5">
