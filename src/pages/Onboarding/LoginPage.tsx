@@ -191,7 +191,7 @@ export default function LoginPage() {
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
               style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-              <input style={inputStyle} placeholder="🔢 Your UID (e.g. 1042) or Email"
+              <input style={inputStyle} placeholder="📧 Your Email Address" type="email"
                 value={form.uid} onChange={e => setForm(f => ({ ...f, uid: e.target.value }))} />
 
               <div style={{ position: 'relative' }}>

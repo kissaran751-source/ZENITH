@@ -31,9 +31,14 @@ function ProtectedLayout() {
   useEffect(() => {
     if (user && firebaseUser) {
       const initInfo = async () => {
-        await midnightStreakCheck(firebaseUser.uid);
-        await handleUnclaimedGifts(user.uid, firebaseUser.uid);
-        setInitDone(true);
+        try {
+          await midnightStreakCheck(firebaseUser.uid);
+          await handleUnclaimedGifts(user.uid, firebaseUser.uid);
+        } catch (error) {
+          console.error("Error during initialization:", error);
+        } finally {
+          setInitDone(true);
+        }
       };
       initInfo();
     }
