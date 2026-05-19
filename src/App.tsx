@@ -17,13 +17,12 @@ import AnalyticsPage from "./pages/Analytics/AnalyticsPage";
 import RewardsPage from "./pages/Rewards/RewardsPage";
 import StorePage from "./pages/Rewards/StorePage";
 import ProfilePage from "./pages/Profile/ProfilePage";
-import OnboardingFlow from "./pages/Onboarding/OnboardingFlow";
 import LoginPage from "./pages/Onboarding/LoginPage";
 import AdminPanel from "./pages/Admin/AdminPanel";
 import { midnightStreakCheck } from "./utils/streakLogic";
 import { Loader2 } from "lucide-react";
 import { handleUnclaimedGifts } from "./utils/coinLogic";
-import { isFirebaseConfigured } from "./firebase";
+import { isFirebaseConfigured, auth } from "./firebase";
 
 function ProtectedLayout() {
   const { user, firebaseUser, loading } = useAuth();
@@ -53,14 +52,10 @@ function ProtectedLayout() {
   }
 
   if (!user) {
-    // If the firebase user is authenticated but the user doc is not yet in context,
-    // they might still be onboarding. Or it may still be loading from network.
-    // We send them to onboarding to finish creating their profile.
-    return <Navigate to="/onboarding" replace />;
-  }
-
-  if (!user.onboardingDone) {
-    return <Navigate to="/onboarding" replace />;
+    // If auth is loaded but there is no user document in Firestore,
+    // their account might be incomplete. We force them back to login.
+    auth.signOut();
+    return <Navigate to="/login" replace />;
   }
 
   if (!initDone) {
@@ -82,7 +77,6 @@ function ProtectedLayout() {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/onboarding" element={<OnboardingFlow />} />
       <Route path="/login" element={<LoginPage />} />
 
       <Route element={<ProtectedLayout />}>
