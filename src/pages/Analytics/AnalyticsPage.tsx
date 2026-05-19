@@ -5,32 +5,22 @@ import {
   AreaChart,
   Area,
   XAxis,
-  YAxis,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
 } from "recharts";
 import {
   format,
   subDays,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameDay,
 } from "date-fns";
-import { collection, query, where, getDocs, orderBy, limit, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../firebase";
-import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Zap, Activity, Target, Flame, TrendingUp, AlertTriangle } from "lucide-react";
+import { motion } from "framer-motion";
+import { Brain, Zap, Activity, Target, Flame, AlertTriangle } from "lucide-react";
 
 // --- Gemini API Setup ---
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
 
 export default function AnalyticsPage() {
-  const { user, firebaseUser } = useAuth();
+  const { user } = useAuth();
   
   // Local Data State
   const [sugarLogs, setSugarLogs] = useState<any[]>([]);
@@ -46,34 +36,31 @@ export default function AnalyticsPage() {
   const [dopamineStatus, setDopamineStatus] = useState("Stable");
 
   useEffect(() => {
-    if (!firebaseUser) return;
+    if (!user) return;
     fetchData();
-  }, [firebaseUser]);
+  }, [user]);
 
   const fetchData = async () => {
     setLoading(true);
-    const thirtyDaysAgo = subDays(new Date(), 30);
+    const thirtyDaysAgo = subDays(new Date(), 30).getTime();
 
     try {
       // 1. Fetch Sugar Tracking
-      const sRef = collection(db, "users", firebaseUser!.uid, "sugarLogs");
-      const sq = query(sRef, where("timestamp", ">=", thirtyDaysAgo), orderBy("timestamp", "desc"));
-      const sDocs = await getDocs(sq);
-      const sData = sDocs.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const sLogsStr = localStorage.getItem('sugar_logs_v2') || '[]';
+      const sDataAll = JSON.parse(sLogsStr);
+      const sData = sDataAll.filter((d: any) => new Date(d.createdAt).getTime() >= thirtyDaysAgo);
       setSugarLogs(sData);
 
       // 2. Fetch Discipline Logs (dailyLogs)
-      const dRef = collection(db, "users", firebaseUser!.uid, "dailyLogs");
-      const dq = query(dRef, where("timestamp", ">=", thirtyDaysAgo), orderBy("timestamp", "desc"));
-      const dDocs = await getDocs(dq);
-      const dData = dDocs.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const dLogsStr = localStorage.getItem('guest_daily_logs') || '[]';
+      const dDataAll = JSON.parse(dLogsStr);
+      const dData = dDataAll.filter((d: any) => new Date(d.timestamp).getTime() >= thirtyDaysAgo);
       setDailyLogs(dData);
 
       // 3. Fetch AI Insights
-      const iRef = collection(db, "users", firebaseUser!.uid, "ai_insights");
-      const iq = query(iRef, orderBy("generatedAt", "desc"), limit(3));
-      const iDocs = await getDocs(iq);
-      setInsights(iDocs.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const iLogsStr = localStorage.getItem('guest_ai_insights') || '[]';
+      const iDataAll = JSON.parse(iLogsStr);
+      setInsights(iDataAll.slice(0, 3)); // Display top 3
       
       calculateMetrics(dData, sData);
     } catch (e) {
@@ -84,14 +71,14 @@ export default function AnalyticsPage() {
   };
 
   const calculateMetrics = (dData: any[], sData: any[]) => {
-    // Basic heuristics for UI if strict math isn't defined
+    // Basic heuristics for UI
     const recentClean = dData.filter(d => d.noMasturbation && d.noSex).length;
     const totalGrams = sData.reduce((acc, l) => acc + (l.grams || 0), 0);
     
     // Discipline Score (0-100)
     let score = 40; 
-    if (user?.streaks?.noMasturbation?.count > 3) score += 20;
-    if (user?.streaks?.noSugar?.count > 3) score += 20;
+    if ((user?.streaks?.noMasturbation?.count || 0) > 3) score += 20;
+    if ((user?.streaks?.noSugar?.count || 0) > 3) score += 20;
     if (recentClean > 5) score += 20;
     setDisciplineScore(Math.min(score, 99));
 
@@ -103,7 +90,7 @@ export default function AnalyticsPage() {
   };
 
   const generateNewInsight = async () => {
-    if (!firebaseUser || !GEMINI_KEY || generatingInsight) return;
+    if (!user || !GEMINI_KEY || generatingInsight) return;
     setGeneratingInsight(true);
     
     try {
@@ -128,22 +115,19 @@ export default function AnalyticsPage() {
       const insightText = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
       
       if (insightText) {
-        // Save to Firebase
-        const newRef = await addDoc(collection(db, "users", firebaseUser.uid, "ai_insights"), {
+        const newInsight = {
+          id: Date.now().toString(),
           insightText,
           category: "Discipline",
           riskLevel: streakM < 3 ? "HIGH" : "LOW",
-          generatedAt: serverTimestamp()
-        });
+          generatedAt: new Date().toISOString()
+        };
+
+        const currentInsights = JSON.parse(localStorage.getItem('guest_ai_insights') || '[]');
+        const updatedInsights = [newInsight, ...currentInsights];
+        localStorage.setItem('guest_ai_insights', JSON.stringify(updatedInsights));
         
-        // Update Local
-        setInsights([{
-          id: newRef.id,
-          insightText,
-          category: "Discipline",
-          riskLevel: streakM < 3 ? "HIGH" : "LOW",
-          generatedAt: new Date()
-        }, ...insights.slice(0, 2)]);
+        setInsights(updatedInsights.slice(0, 3));
       }
     } catch (e) {
       console.error(e);
@@ -164,7 +148,7 @@ export default function AnalyticsPage() {
   const last7Days = Array.from({ length: 7 }).map((_, i) => subDays(new Date(), 6 - i));
   const sugarChartData = last7Days.map((d) => {
     const dStr = format(d, "yyyy-MM-dd");
-    const dayLogs = sugarLogs.filter((l) => l.createdAt && format(l.createdAt.toDate?.() || new Date(l.timestamp?.seconds * 1000), "yyyy-MM-dd") === dStr);
+    const dayLogs = sugarLogs.filter((l) => l.createdAt && format(new Date(l.createdAt), "yyyy-MM-dd") === dStr);
     const totalGrams = dayLogs.reduce((acc, l) => acc + (l.grams || 0), 0);
     return {
       name: format(d, "EE"),
@@ -255,7 +239,7 @@ export default function AnalyticsPage() {
                     RISK: {insight.riskLevel}
                   </span>
                   <span>•</span>
-                  <span>{insight.generatedAt?.toDate ? format(insight.generatedAt.toDate(), "MMM d, h:mm a") : "Just now"}</span>
+                  <span>{insight.generatedAt ? format(new Date(insight.generatedAt), "MMM d, h:mm a") : "Just now"}</span>
                 </div>
               </motion.div>
             )) : (

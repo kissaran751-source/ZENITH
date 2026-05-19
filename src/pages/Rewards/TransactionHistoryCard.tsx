@@ -1,41 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { collection, query, where, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function TransactionHistoryCard() {
-  const { firebaseUser } = useAuth();
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!firebaseUser || !firebaseUser.uid) return;
+    if (!user) return;
     
-    if (!firebaseUser) {
-      setLoading(false);
-      return;
-    }
     // Fetch recent transactions in realtime
-    const q = query(
-      collection(db, 'transactions'),
-      where('userId', '==', firebaseUser.uid)
-    );
-    
-    const unsubscribe = onSnapshot(q, (snap) => {
-      let data = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
-      // Sort client-side to avoid needing a composite index
-      data.sort((a, b) => {
-        const timeA = a.timestamp?.toMillis?.() || 0;
-        const timeB = b.timestamp?.toMillis?.() || 0;
-        return timeB - timeA;
-      });
-      setTransactions(data.slice(0, 3));
-    }, (err) => {
-      console.error('Failed to fetch transactions', err);
-    });
-    
-    return () => unsubscribe();
-  }, [firebaseUser]);
+    try {
+      const stored = localStorage.getItem('guest_transactions');
+      if (stored) {
+        let data = JSON.parse(stored);
+        data.sort((a: any, b: any) => {
+          const timeA = a.timestamp || 0;
+          const timeB = b.timestamp || 0;
+          return timeB - timeA;
+        });
+        setTransactions(data.slice(0, 3));
+      }
+    } catch(err) {
+      console.error(err);
+    }
+  }, [user]);
 
   return (
     <motion.div
@@ -95,7 +84,7 @@ export default function TransactionHistoryCard() {
               <div>
                 <div style={{ fontFamily: 'Sora', fontWeight: 600, fontSize: '13px', color: '#fff' }}>{t.itemName}</div>
                 <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'DM Sans' }}>
-                  {new Date(t.timestamp?.toMillis?.() || Date.now()).toLocaleDateString()}
+                  {new Date(t.timestamp || Date.now()).toLocaleDateString()}
                 </div>
               </div>
             </div>

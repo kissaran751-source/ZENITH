@@ -4,43 +4,34 @@ import { PremiumButton } from "../../components/PremiumButton";
 import { formatNumber } from "../../utils/formatters";
 import { Clock } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useToast } from "../../components/Toast";
-import { doc, setDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../../firebase";
+import { saveGuestUser } from "../../utils/guestLogic";
 
-export default function TaskCard({ task }: any) {
-  const { user, firebaseUser } = useAuth();
-  const { showToast } = useToast();
-  const [sliderValue, setSliderValue] = useState(task.sliderMin);
+export default function TaskCard({ task, showToast }: any) {
+  const { user, setUser } = useAuth();
+  const [sliderValue, setSliderValue] = useState(task.sliderMin || 1);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const estimatedCoins = Math.round(
-    (task.hasSlider ? sliderValue : 1) * task.pricePerUnit,
+    (task.hasSlider ? sliderValue : 1) * (task.pricePerUnit || task.reward || 100),
   );
 
   const handleSendRequest = async () => {
-    if (!firebaseUser || !user) return;
+    if (!user) return;
     setLoading(true);
     try {
-      const newRef = doc(collection(db, "requests"));
-      await setDoc(newRef, {
-        uid: user.uid,
-        firebaseUid: firebaseUser.uid,
-        taskId: task.id,
-        taskName: task.name,
-        sliderValue: task.hasSlider ? sliderValue : null,
-        coinAmount: estimatedCoins,
-        status: "pending",
-        note: "",
-        createdAt: serverTimestamp(),
-        processedAt: null,
-        processedBy: null,
-      });
+      const updatedUser = {
+        ...user,
+        coins: (user.coins || 0) + estimatedCoins
+      };
+      
+      saveGuestUser(updatedUser);
+      setUser(updatedUser);
+      
       setSubmitted(true);
-      showToast("Request sent successfully!", "success");
+      if (showToast) showToast(`Completed! Earned ${estimatedCoins} coins.`);
     } catch (err: any) {
-      showToast(err.message, "error");
+      if (showToast) showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -48,8 +39,9 @@ export default function TaskCard({ task }: any) {
 
   return (
     <GlassCard className="mx-4 mb-3 !p-[22px]">
-      <div className="font-sora text-[17px] font-bold text-white mb-1.5">
-        {task.name}
+      <div className="font-sora text-[17px] font-bold text-white mb-1.5 flex items-center gap-2">
+        {task.icon && <span>{task.icon}</span>}
+        {task.name || task.title}
       </div>
       <div className="text-[13px] text-white/70">{task.description}</div>
 
@@ -92,7 +84,7 @@ export default function TaskCard({ task }: any) {
           onClick={handleSendRequest}
           disabled={submitted || loading}
         >
-          {submitted ? "✅ Sent" : "Send Request"}
+          {submitted ? "✅ Done" : "Complete"}
         </PremiumButton>
       </div>
 

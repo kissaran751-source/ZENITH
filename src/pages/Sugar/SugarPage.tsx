@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { doc, updateDoc, collection, getDocs, addDoc, serverTimestamp, query, orderBy, where } from "firebase/firestore";
-import { db } from "../../firebase";
 import { motion, AnimatePresence } from "motion/react";
 import { GlassCard } from "../../components/GlassCard";
 import { useToast } from "../../components/Toast";
 import { Coffee, ChevronRight, Loader2, Sparkles, Activity } from "lucide-react";
-import { getTodayStr } from "../../utils/streakLogic";
+import { getTodayStr, saveGuestUser } from "../../utils/guestLogic";
 
 export default function SugarPage() {
-  const { user, firebaseUser } = useAuth();
+  const { user, setUser } = useAuth();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -27,31 +25,28 @@ export default function SugarPage() {
   const [level, setLevel] = useState("");
   const [dailyItems, setDailyItems] = useState("");
 
-  const today = getTodayStr();
+  const today = new Date().toISOString().split('T')[0];
   const logChecked = user?.streaks?.noSugar?.lastChecked === today;
 
   useEffect(() => {
-    if (isSetup && firebaseUser) {
+    if (isSetup && user) {
       loadAnalytics();
     }
-  }, [isSetup, firebaseUser]);
+  }, [isSetup, user]);
 
   const loadAnalytics = async () => {
-    if (!firebaseUser) return;
     try {
-      const logsRef = collection(db, `users/${firebaseUser.uid}/sugarLogs`);
-      const q = query(logsRef, orderBy("createdAt", "desc"));
-      const snap = await getDocs(q);
+      const logsStr = localStorage.getItem('sugar_logs_v2') || '[]';
+      const logs = JSON.parse(logsStr);
       
       const now = new Date();
       let sevenD = 0;
       let thirtyD = 0;
       let lastM = 0;
 
-      snap.forEach(doc => {
-        const data = doc.data();
+      logs.forEach((data: any) => {
         if (!data.createdAt) return;
-        const date = data.createdAt.toDate();
+        const date = new Date(data.createdAt);
         const diffDays = (now.getTime() - date.getTime()) / (1000 * 3600 * 24);
         
         if (diffDays <= 7) sevenD += data.grams || 0;
@@ -72,16 +67,19 @@ export default function SugarPage() {
   };
 
   const handleFinishOnboarding = async () => {
-    if (!firebaseUser) return;
+    if (!user) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", firebaseUser.uid), {
+      const updatedUser = {
+        ...user,
         sugarInfo: {
           onboardingDone: true,
           level,
           dailyConsumption: dailyItems
         }
-      });
+      };
+      saveGuestUser(updatedUser);
+      setUser(updatedUser);
       showToast("Sugar tracking ready!", "success");
     } catch (error: any) {
       showToast(error.message, "error");
@@ -95,7 +93,7 @@ export default function SugarPage() {
 
   const handleSendMessage = async (text: string, inlineData?: { data: string, mimeType: string }) => {
     if (!text.trim() && !inlineData) return;
-    if (!firebaseUser) return;
+    if (!user) return;
     
     setAnalyzing(true);
     setPendingLog(null);
@@ -155,14 +153,18 @@ export default function SugarPage() {
   };
 
   const handleConfirmLog = async () => {
-    if (!pendingLog || !firebaseUser || !user) return;
+    if (!pendingLog || !user) return;
     setAnalyzing(true);
     try {
-      await addDoc(collection(db, `users/${firebaseUser.uid}/sugarLogs`), {
+      const logsStr = localStorage.getItem('sugar_logs_v2') || '[]';
+      const logs = JSON.parse(logsStr);
+      
+      logs.push({
         text: pendingLog.explanation,
         grams: pendingLog.grams,
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
       });
+      localStorage.setItem('sugar_logs_v2', JSON.stringify(logs));
 
       showToast(`Logged ${pendingLog.grams}g sugar.`, "success");
       setMessages([]);
@@ -170,30 +172,24 @@ export default function SugarPage() {
       loadAnalytics();
 
       // Ensure total daily sugar < 10g
-      const todayStr = getTodayStr();
-      const logsRef = collection(db, `users/${firebaseUser.uid}/sugarLogs`);
-      
-      // Calculate today's total sugar directly after adding
-      const q = query(logsRef);
-      const snap = await getDocs(q);
       const now = new Date();
       let todayGrams = 0;
-      snap.forEach(d => {
-         const data = d.data();
-         if (data.createdAt) {
-            const date = data.createdAt.toDate();
+      logs.forEach((d: any) => {
+         if (d.createdAt) {
+            const date = new Date(d.createdAt);
             if (date.toDateString() === now.toDateString()) {
-               todayGrams += data.grams || 0;
+               todayGrams += d.grams || 0;
             }
          }
       });
 
       if (todayGrams > 10) {
-        const updates: any = {};
-        updates["streaks.noSugar.broken"] = true;
-        updates["streaks.noSugar.brokenAt"] = serverTimestamp();
-        updates["streaks.noSugar.count"] = 0;
-        await updateDoc(doc(db, "users", firebaseUser.uid), updates);
+        const updatedUser = { ...user, streaks: { ...user.streaks } };
+        updatedUser.streaks.noSugar.broken = true;
+        updatedUser.streaks.noSugar.brokenAt = new Date().toISOString();
+        updatedUser.streaks.noSugar.count = 0;
+        saveGuestUser(updatedUser);
+        setUser(updatedUser);
         showToast("Streak broken! > 10g sugar today.", "error");
       }
     } catch (e: any) {
@@ -204,21 +200,21 @@ export default function SugarPage() {
   };
 
   const markNoSugarToday = async () => {
-    if (!firebaseUser || !user) return;
+    if (!user) return;
     try {
-      const updates: any = {};
+      const updatedUser = { ...user, streaks: { ...user.streaks } };
       
-      // If we already broke it today via analyze... wait if broken we don't increase count
-      if (user.streaks.noSugar.broken) {
-        updates["streaks.noSugar.broken"] = false;
-        updates["streaks.noSugar.brokenAt"] = null;
-        updates["streaks.noSugar.count"] = 1;
+      if (updatedUser.streaks.noSugar.broken) {
+        updatedUser.streaks.noSugar.broken = false;
+        updatedUser.streaks.noSugar.brokenAt = null;
+        updatedUser.streaks.noSugar.count = 1;
       } else {
-        updates["streaks.noSugar.count"] = (user.streaks.noSugar.count || 0) + 1;
+        updatedUser.streaks.noSugar.count = (updatedUser.streaks.noSugar.count || 0) + 1;
       }
-      updates["streaks.noSugar.lastChecked"] = today;
+      updatedUser.streaks.noSugar.lastChecked = today;
 
-      await updateDoc(doc(db, "users", firebaseUser.uid), updates);
+      saveGuestUser(updatedUser);
+      setUser(updatedUser);
       showToast("Awesome! No sugar today.", "success");
     } catch (e: any) {
       showToast(e.message, "error");
@@ -286,7 +282,7 @@ export default function SugarPage() {
          <div style={{
             position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)',
             width: '180px', height: '180px', borderRadius: '50%', pointerEvents: 'none',
-            background: user.streaks.noSugar.broken 
+            background: user.streaks?.noSugar?.broken 
                ? 'radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 70%)' 
                : 'radial-gradient(circle, rgba(217,70,239,0.3) 0%, transparent 70%)'
          }} />
@@ -294,18 +290,18 @@ export default function SugarPage() {
          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
             <motion.img 
                initial={{ y: 20, scale: 0 }}
-               animate={!user.streaks.noSugar.broken ? { y: [0, -6, 0], scale: 1 } : { scale: 1 }}
+               animate={!user.streaks?.noSugar?.broken ? { y: [0, -6, 0], scale: 1 } : { scale: 1 }}
                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", scale: { type: "spring", bounce: 0.5 } }}
                src="https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/Candy/3D/candy_3d.png" 
                alt="Candy"
                style={{ 
                   width: '120px', height: '120px', objectFit: 'contain',
-                  filter: !user.streaks.noSugar.broken ? 'hue-rotate(-20deg) saturate(1.5) brightness(1.1) drop-shadow(0 0 15px rgba(217,70,239,0.6)) drop-shadow(0 0 30px rgba(217,70,239,0.3))' : 'grayscale(1) opacity(0.4)',
+                  filter: !user.streaks?.noSugar?.broken ? 'hue-rotate(-20deg) saturate(1.5) brightness(1.1) drop-shadow(0 0 15px rgba(217,70,239,0.6)) drop-shadow(0 0 30px rgba(217,70,239,0.3))' : 'grayscale(1) opacity(0.4)',
                   position: 'relative', zIndex: 2
                }}
             />
             
-            {!user.streaks.noSugar.broken && (
+            {!user.streaks?.noSugar?.broken && (
               <>
                 <motion.div
                   animate={{ y: [-10, -50], x: [-5, -15], opacity: [0, 1.5, 0], scale: [0.5, 1, 0.5] }}
@@ -328,7 +324,7 @@ export default function SugarPage() {
          
          <motion.div initial={{ scale: 1.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '64px', color: '#fff', lineHeight: 1, letterSpacing: '-2px', textShadow: '0 0 30px rgba(168,85,247,0.5)' }}>
-            {user.streaks.noSugar.broken ? 0 : user.streaks.noSugar.count}
+            {user.streaks?.noSugar?.broken ? 0 : user.streaks?.noSugar?.count}
          </motion.div>
          
          <div style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '12px', letterSpacing: '3px', color: 'rgba(255,255,255,0.45)', marginTop: '8px', textTransform: 'uppercase' }}>

@@ -5,14 +5,7 @@ import { PremiumButton } from "../../components/PremiumButton";
 import { format } from "date-fns";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../components/Toast";
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  setDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "../../firebase";
+import { saveGuestUser } from "../../utils/guestLogic";
 import { getTodayStr } from "../../utils/streakLogic";
 
 const SOURCES = [
@@ -23,7 +16,7 @@ const SOURCES = [
 ];
 
 export default function SugarLogModal({ isOpen, onClose }: any) {
-  const { firebaseUser, user } = useAuth();
+  const { user, setUser } = useAuth();
   const { showToast } = useToast();
   const [hadSugar, setHadSugar] = useState<boolean | null>(null);
   const [sources, setSources] = useState<string[]>([]);
@@ -36,7 +29,7 @@ export default function SugarLogModal({ isOpen, onClose }: any) {
   };
 
   const handleConfirm = async () => {
-    if (!firebaseUser || hadSugar === null) return;
+    if (!user || hadSugar === null) return;
     if (hadSugar && sources.length === 0) {
       showToast("Please select at least one source", "error");
       return;
@@ -44,40 +37,48 @@ export default function SugarLogModal({ isOpen, onClose }: any) {
 
     setLoading(true);
     const today = getTodayStr();
-    try {
-      const userRef = doc(db, "users", firebaseUser.uid);
-      const logRef = doc(db, "users", firebaseUser.uid, "sugarLogs", today);
 
-      const logSnap = await getDoc(logRef);
-      if (logSnap.exists() && logSnap.data().logged) {
+    try {
+      const sugarLogsStr = localStorage.getItem("zenith_sugar_logs") || "[]";
+      const sugarLogs = JSON.parse(sugarLogsStr);
+      
+      const existingLog = sugarLogs.find((L: any) => L.id === today);
+      if (existingLog) {
         throw new Error("Already logged sugar today");
       }
 
-      await setDoc(logRef, {
-        logged: true,
+      sugarLogs.unshift({
+        id: today,
+        timestamp: new Date().toISOString(),
         hadSugar,
         sources: hadSugar ? sources : [],
-        timestamp: serverTimestamp(),
       });
+      localStorage.setItem("zenith_sugar_logs", JSON.stringify(sugarLogs));
 
-      // Sugar streak updates
-      const updates: any = {};
-      if (hadSugar) {
-        updates["streaks.noSugar.broken"] = true;
-        updates["streaks.noSugar.brokenAt"] = serverTimestamp();
-        updates["streaks.noSugar.count"] = 0;
-      } else {
-        if (user?.streaks.noSugar.broken) {
-          updates["streaks.noSugar.broken"] = false;
-          updates["streaks.noSugar.brokenAt"] = null;
-          updates["streaks.noSugar.count"] = 1;
-        } else {
-          updates["streaks.noSugar.count"] = (user?.streaks.noSugar.count || 0) + 1;
-        }
-        updates["streaks.noSugar.lastChecked"] = today;
+      const updatedUser = { ...user, streaks: { ...user.streaks } };
+      
+      if (!updatedUser.streaks.noSugar) {
+        updatedUser.streaks.noSugar = { count: 0, broken: false, brokenAt: null, lastChecked: "" };
       }
 
-      await updateDoc(userRef, updates);
+      if (hadSugar) {
+        updatedUser.streaks.noSugar.broken = true;
+        updatedUser.streaks.noSugar.brokenAt = new Date().toISOString();
+        updatedUser.streaks.noSugar.count = 0;
+      } else {
+        if (updatedUser.streaks.noSugar.broken) {
+          updatedUser.streaks.noSugar.broken = false;
+          updatedUser.streaks.noSugar.brokenAt = null;
+          updatedUser.streaks.noSugar.count = 1;
+        } else {
+          updatedUser.streaks.noSugar.count = (updatedUser.streaks.noSugar.count || 0) + 1;
+        }
+        updatedUser.streaks.noSugar.lastChecked = today;
+      }
+
+      saveGuestUser(updatedUser);
+      setUser(updatedUser);
+
       showToast("Sugar logged successfully", "success");
       onClose();
     } catch (err: any) {

@@ -19,6 +19,8 @@ export const getGuestUser = (): AppUser => {
     theme: "dark",
     coins: 0,
     onboardingDone: true,
+    onboardingScore: 0,
+    onboardingAnswers: {},
     streaks: {
       noMasturbation: { count: 0, lastChecked: "", broken: false, brokenAt: null },
       noSex:          { count: 0, lastChecked: "", broken: false, brokenAt: null },
@@ -27,8 +29,7 @@ export const getGuestUser = (): AppUser => {
     loginStreak: { count: 0, lastLogin: "", claimedDays: [] },
     rankHistory: { currentRank: "novice", claimedRanks: ["novice"] },
     auraLevel: 0,
-    streakFreezes: 0,
-    firebaseUid: "guest"
+    streakFreezes: 0
   };
 };
 

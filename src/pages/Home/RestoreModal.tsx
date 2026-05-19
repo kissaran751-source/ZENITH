@@ -3,11 +3,11 @@ import { BottomSheet } from "../../components/BottomSheet";
 import { GlassCard } from "../../components/GlassCard";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../components/Toast";
-import { restoreStreak } from "../../utils/streakLogic";
 import { differenceInHours } from "date-fns";
+import { saveGuestUser } from "../../utils/guestLogic";
 
 export default function RestoreModal({ isOpen, onClose }: any) {
-  const { firebaseUser, user } = useAuth();
+  const { user, setUser } = useAuth();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -15,7 +15,7 @@ export default function RestoreModal({ isOpen, onClose }: any) {
     !user ||
     (!user.streaks.noMasturbation.broken &&
       !user.streaks.noSex.broken &&
-      !user.streaks.noSugar.broken)
+      !user.streaks.noSugar?.broken)
   ) {
     return (
       <BottomSheet isOpen={isOpen} onClose={onClose}>
@@ -30,15 +30,33 @@ export default function RestoreModal({ isOpen, onClose }: any) {
     type: "noMasturbation" | "noSex" | "noSugar" | "both",
     cost: number,
   ) => {
-    if (user.role === "GUEST") {
-      showToast("Store operations require a synced account. Please login from the Profile tab.", "error");
-      return;
-    }
-    if (!firebaseUser) return;
     if (confirm(`Spend ${cost} coins to restore this streak?`)) {
       setLoading(true);
       try {
-        await restoreStreak(firebaseUser.uid, type, cost);
+        if (user.coins < cost) throw new Error("Not enough coins");
+
+        const updatedUser = { ...user, coins: user.coins - cost, streaks: { ...user.streaks } };
+
+        const types: ("noMasturbation" | "noSex" | "noSugar")[] = type === "both" ? ["noMasturbation", "noSex"] : [type];
+
+        for (const t of types) {
+          const streak = updatedUser.streaks[t as "noMasturbation"|"noSex"|"noSugar"];
+          if (!streak || !streak.broken) throw new Error(`${t} streak is not broken`);
+
+          const brokenDate = streak.brokenAt ? new Date(streak.brokenAt) : new Date();
+          const hoursSince = differenceInHours(new Date(), brokenDate);
+          
+          if (hoursSince > 48)
+            throw new Error(`Restore window expired (48h limit) for ${t}`);
+
+          streak.broken = false;
+          streak.brokenAt = null;
+          streak.lastChecked = new Date().toISOString().split('T')[0];
+        }
+
+        saveGuestUser(updatedUser);
+        setUser(updatedUser);
+        
         showToast("Streak restored! 🔥", "restore");
         onClose();
       } catch (err: any) {
@@ -60,12 +78,9 @@ export default function RestoreModal({ isOpen, onClose }: any) {
     emoji: string;
     cost: number;
   }) => {
-    const s =
-      type === "both" ? user.streaks.noMasturbation : user.streaks[type]; // simple hack for both
-    const hours = differenceInHours(
-      new Date(),
-      s.brokenAt?.toDate() || new Date(),
-    );
+    const s = type === "both" ? user.streaks.noMasturbation : user.streaks[type as "noMasturbation"|"noSex"|"noSugar"];
+    const brokenDate = s?.brokenAt ? new Date(s.brokenAt) : new Date();
+    const hours = differenceInHours(new Date(), brokenDate);
     const expired = hours > 48;
     const canAfford = user.coins >= cost;
 
@@ -100,7 +115,7 @@ export default function RestoreModal({ isOpen, onClose }: any) {
 
   const mast = user.streaks.noMasturbation;
   const sex = user.streaks.noSex;
-  const sug = user.streaks.noSugar;
+  const sug = user.streaks.noSugar || { broken: false };
 
   return (
     <BottomSheet

@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 
 import RewardsCarousel  from './RewardsCarousel';
@@ -12,23 +10,16 @@ import RankJourney      from './RankJourney';
 import AICoachCard      from './AICoachCard';
 import ZenithCoin       from '../../components/ZenithCoin';
 
-export default function RewardsPage() {
-  const { user, firebaseUser } = useAuth();
-  const [tasks, setTasks]     = useState<any[]>([]);
-  const [toast, setToast]     = useState('');
+const DEFAULT_TASKS = [
+  { id: '1', title: 'Complete a workout', description: 'At least 30 minutes of exercise.', reward: 100, icon: '🏋️' },
+  { id: '2', title: 'Read 10 pages', description: 'Read a non-fiction book.', reward: 50, icon: '📚' },
+  { id: '3', title: 'Meditate', description: '10 mins of mindfulness.', reward: 50, icon: '🧘' }
+];
 
-  useEffect(() => {
-    // Note: the tasks collection initially doesn't use `isActive` in some parts of our DB setup,
-    // so we'll fetch all or handle appropriately. 
-    const q = query(collection(db,'tasks'));
-    return onSnapshot(q, snap => {
-      setTasks(
-        snap.docs
-          .map(d=>({id:d.id, ...d.data()}))
-          // .filter((t: any) => t.isActive)
-      );
-    });
-  }, []);
+export default function RewardsPage() {
+  const { user } = useAuth();
+  const [tasks, setTasks]     = useState<any[]>(DEFAULT_TASKS);
+  const [toast, setToast]     = useState('');
 
   function showToast(msg: string) {
     setToast(msg);
@@ -81,7 +72,6 @@ export default function RewardsPage() {
       {/* ── Daily Login ────────────────────── */}
       <DailyLoginReward
         user={user as any}
-        firebaseUid={firebaseUser?.uid}
         onClaimed={(r: number) => showToast(`⚡ +${r} Zenith Coins credited!`)}
       />
 
@@ -91,12 +81,12 @@ export default function RewardsPage() {
           Earn More Coins
         </div>
         <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.35)', marginTop:'3px', fontFamily:'DM Sans' }}>
-          Complete tasks · Coins credited after admin review
+          Complete tasks · Coins credited instantly
         </div>
       </div>
 
       {tasks.length > 0 ? tasks.map(t => (
-        <TaskCard key={t.id} task={t} user={user} firebaseUid={firebaseUser?.uid} />
+        <TaskCard key={t.id} task={t} user={user} showToast={showToast} />
       )) : <ComingSoon />}
 
       {/* ── Rank Journey ───────────────────── */}

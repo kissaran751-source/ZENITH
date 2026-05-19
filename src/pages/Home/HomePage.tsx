@@ -10,7 +10,7 @@ import DailyCheckModal from "./DailyCheckModal";
 import SugarLogModal from "./SugarLogModal";
 import RestoreModal from "./RestoreModal";
 import { getDailyTip as getTip } from "../../utils/tips";
-import { checkAndClaimRank, RANKS } from "../../utils/rankLogic";
+import { RANKS } from "../../utils/rankLogic";
 
 export default function HomePage() {
   const { user } = useAuth();

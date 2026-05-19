@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { doc, updateDoc, increment, arrayUnion, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { saveGuestUser } from '../../utils/guestLogic';
+import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import ZenithCoin from '../../components/ZenithCoin';
 
@@ -23,7 +23,8 @@ function getTierInfo(dayCount: number) {
   return               { label: 'Tier IV',  color: '#F472B6', nextAt: '∞', icon: '👑', max: dayCount + 30 };
 }
 
-export default function DailyLoginReward({ user, firebaseUid, onClaimed }: any) {
+export default function DailyLoginReward({ onClaimed }: any) {
+  const { user, setUser } = useAuth();
   const [loading, setLoading]       = useState(false);
   const [justClaimed, setJustClaimed] = useState(false);
   const [showBurst, setShowBurst]   = useState(false);
@@ -36,25 +37,28 @@ export default function DailyLoginReward({ user, firebaseUid, onClaimed }: any) 
   const tier         = getTierInfo(dayCount);
 
   async function handleClaim() {
-    if (alreadyClaimed || loading || justClaimed) return;
+    if (alreadyClaimed || loading || justClaimed || !user) return;
     setLoading(true);
     try {
-      const userRef = doc(db, 'users', firebaseUid);
-      const snap    = await getDoc(userRef);
-      const data    = snap.data();
-      const lastLogin = data?.loginStreak?.lastLogin;
+      const lastLogin = loginStreak.lastLogin;
       const yesterday = getYesterdayStr();
       const newCount  = (lastLogin === yesterday || lastLogin === today)
-        ? (data?.loginStreak?.count || 0) + 1
+        ? dayCount + 1
         : 1;
       const reward = getRewardForDay(newCount);
 
-      await updateDoc(userRef, {
-        coins: increment(reward),
-        'loginStreak.count':       newCount,
-        'loginStreak.lastLogin':   today,
-        'loginStreak.claimedDays': arrayUnion(today),
-      });
+      const updatedUser = {
+        ...user,
+        coins: (user.coins || 0) + reward,
+        loginStreak: {
+          count: newCount,
+          lastLogin: today,
+          claimedDays: [...(loginStreak.claimedDays || []), today],
+        }
+      };
+
+      saveGuestUser(updatedUser);
+      setUser(updatedUser);
 
       setJustClaimed(true);
       setShowBurst(true);
@@ -132,7 +136,7 @@ export default function DailyLoginReward({ user, firebaseUid, onClaimed }: any) 
                 whileTap={{ scale:0.90 }}
                 whileHover={{ scale:1.04 }}
                 onClick={handleClaim}
-                disabled={loading}
+                disabled={loading || !user}
                 style={{
                   background:'linear-gradient(135deg,#3B82F6,#1D4ED8)',
                   border:'none', borderRadius:'14px',

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { GlassCard } from "../../components/GlassCard";
 import { format } from "date-fns";
@@ -13,14 +13,13 @@ import {
   Shield,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../../firebase";
-import { signOut } from "firebase/auth";
 import { useToast } from "../../components/Toast";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) return null;
 
@@ -33,15 +32,54 @@ export default function ProfilePage() {
     user.streaks.noMasturbation.count,
     user.streaks.noSex.count,
   );
-  const totalCoinsEarned = user.coins; // simplify
+  const totalCoinsEarned = user.coins;
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      navigate("/login");
-    } catch (err) {
-      showToast("Error signing out", "error");
-    }
+  const handleSignOut = () => {
+    // Clear out everything
+    localStorage.clear();
+    window.location.href = '/';
+  };
+
+  const handleExportData = () => {
+    const data = {
+      user: JSON.parse(localStorage.getItem('guest_user') || '{}'),
+      logs: JSON.parse(localStorage.getItem('guest_logs') || '{}'),
+      transactions: JSON.parse(localStorage.getItem('guest_transactions') || '[]'),
+      sugarLogs: JSON.parse(localStorage.getItem('sugar_logs_v2') || '[]')
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zenith-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Data exported successfully!", "success");
+  };
+
+  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.user) localStorage.setItem('guest_user', JSON.stringify(data.user));
+        if (data.logs) localStorage.setItem('guest_logs', JSON.stringify(data.logs));
+        if (data.transactions) localStorage.setItem('guest_transactions', JSON.stringify(data.transactions));
+        if (data.sugarLogs) localStorage.setItem('sugar_logs_v2', JSON.stringify(data.sugarLogs));
+        
+        showToast("Data imported! Reloading...", "success");
+        setTimeout(() => window.location.reload(), 1000);
+      } catch (err) {
+        showToast("Invalid backup file", "error");
+      }
+    };
+    reader.readAsText(file);
   };
 
   const SettingRow = ({
@@ -82,29 +120,12 @@ export default function ProfilePage() {
     <div className="pt-4 pb-12 overflow-x-hidden text-white">
       <div className="pt-8 px-6 pb-6 text-center flex flex-col items-center justify-center">
         <div className="w-20 h-20 bg-[var(--blue-gradient)] rounded-full flex items-center justify-center font-sora text-[32px] font-bold text-white mb-4 shadow-[0_0_30px_var(--blue-glow)]">
-          {user.name[0].toUpperCase()}
+          {user.name?.[0]?.toUpperCase() || 'G'}
         </div>
-        <div className="font-sora text-[22px] font-bold">{user.name}</div>
-        <div className="text-[14px] text-white/50 mt-1">UID: {user.uid}</div>
+        <div className="font-sora text-[22px] font-bold">{user.name || 'Guest'}</div>
         <div className="text-[13px] text-white/40 mt-1">
-          Member since{" "}
-          {format(user.createdAt?.toDate ? user.createdAt.toDate() : new Date(user.createdAt || Date.now()), "MMMM yyyy")}
+          Local Storage Profile
         </div>
-
-        {user.email ? (
-          <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-blue-500/15 rounded-full border border-blue-500/30">
-            <span className="text-blue-400 text-[13px] font-semibold">
-              📧 {user.email}
-            </span>
-          </div>
-        ) : (
-          <button
-            onClick={() => navigate("/login")}
-            className="inline-flex items-center gap-2 mt-4 px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-500 rounded-full shadow-lg hover:shadow-blue-500/30 transition-all font-sora text-[14px] font-semibold text-white"
-          >
-            <Shield size={16} /> Protect Account (Login)
-          </button>
-        )}
       </div>
 
       <GlassCard className="mx-4 mb-6 !p-5">
@@ -151,51 +172,41 @@ export default function ProfilePage() {
           label="Export My Data"
           sublabel="Download your progress as JSON"
           right={<ChevronRight size={18} />}
-          onClick={() => showToast("Export initiated", "info")}
+          onClick={handleExportData}
         />
         <SettingRow
           icon={<Upload size={20} />}
           label="Import Data"
           sublabel="Restore from a backup file"
           right={<ChevronRight size={18} />}
-          onClick={() => showToast("Import coming soon", "info")}
+          onClick={() => fileInputRef.current?.click()}
         />
-        <SettingRow
-          icon={<Clock size={20} />}
-          label="My Requests"
-          sublabel="View task approval status"
-          right={<ChevronRight size={18} />}
+        <input 
+          type="file" 
+          accept=".json" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          onChange={handleImportData} 
         />
+        
         <SettingRow
           icon={<Info size={20} />}
           label="App Version"
-          right={<span className="text-[13px]">v1.0.0</span>}
+          right={<span className="text-[13px]">v1.0.0 (Local Only)</span>}
         />
-        {user.email && (
-          <SettingRow
-            icon={<LogOut size={20} />}
-            label="Sign Out"
-            right={<ChevronRight size={18} />}
-            onClick={handleSignOut}
-            danger
-          />
-        )}
 
-        {user.role === 'SUPER_ADMIN' && user.adminAccess && (
-          <div className="mt-6 mb-4">
-            <div className="text-[11px] font-semibold text-blue-400/80 tracking-wider mb-2 uppercase flex items-center gap-1">
-              <Shield size={12} /> SUPER ADMIN
-            </div>
-            <SettingRow
-              icon={<Shield size={20} />}
-              label="Admin Control Panel"
-              sublabel="Store, economy, users & feature settings"
-              right={<ChevronRight size={18} />}
-              onClick={() => navigate("/admin")}
-              accent
-            />
-          </div>
-        )}
+        <SettingRow
+          icon={<LogOut size={20} />}
+          label="Wipe All Data"
+          sublabel="Deletes everything forever"
+          right={<ChevronRight size={18} />}
+          onClick={() => {
+            if (confirm('Are you sure you want to delete all local data? This cannot be undone unless you export a backup first!')) {
+              handleSignOut();
+            }
+          }}
+          danger
+        />
       </div>
     </div>
   );

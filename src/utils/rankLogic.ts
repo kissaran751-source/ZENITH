@@ -1,12 +1,3 @@
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  increment,
-  arrayUnion,
-} from "firebase/firestore";
-import { db } from "../firebase";
-
 export const RANKS = [
   {
     id: "novice",
@@ -82,33 +73,4 @@ export const RANKS = [
 
 export function getRankById(id: string) {
   return RANKS.find((r) => r.id === id) || RANKS[0];
-}
-
-export async function checkAndClaimRank(
-  firebaseUid: string,
-  currentStreak: number,
-) {
-  const userRef = doc(db, "users", firebaseUid);
-
-  try {
-    const userDoc = await getDoc(userRef);
-    const user = userDoc.data();
-    if (!user) return null;
-
-    const claimedRanks = user.rankHistory?.claimedRanks || [];
-
-    for (const rank of RANKS) {
-      if (currentStreak >= rank.minDay && !claimedRanks.includes(rank.id)) {
-        await updateDoc(userRef, {
-          coins: increment(rank.coins),
-          "rankHistory.claimedRanks": arrayUnion(rank.id),
-          "rankHistory.currentRank": rank.id,
-        });
-        return rank;
-      }
-    }
-  } catch (err) {
-    console.error("Error claiming rank: ", err);
-  }
-  return null;
 }

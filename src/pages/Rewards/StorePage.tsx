@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, setDoc, addDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import ZenithCoin from '../../components/ZenithCoin';
 
@@ -18,7 +16,7 @@ const DEFAULT_ITEMS = [
 
 export default function StorePage() {
   const navigate = useNavigate();
-  const { user, firebaseUser } = useAuth();
+  const { user, setUser } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -26,40 +24,20 @@ export default function StorePage() {
   const [toast, setToast] = useState('');
 
   useEffect(() => {
-    if (!firebaseUser) return;
-    setLoading(true);
-    const q = query(collection(db, 'store_items'), where('enabled', '==', true));
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      try {
-        if (snap.empty) {
-          // Seed defaults
-          const batch = DEFAULT_ITEMS.map(item => setDoc(doc(db, 'store_items', item.itemId), item));
-          await Promise.all(batch);
-          // Wait for the next snapshot to fire for the newly seeded items
-        } else {
-          setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('Error in store sync:', err);
-        setLoading(false);
-      }
-    }, (err) => {
-      console.error('Error fetching store items realtime:', err);
-      setLoading(false);
-    });
-    
-    return () => unsubscribe();
-  }, [firebaseUser]);
+    // Load local items
+    const stored = localStorage.getItem('guest_store_items');
+    if (stored) {
+      setItems(JSON.parse(stored));
+    } else {
+      setItems(DEFAULT_ITEMS);
+      localStorage.setItem('guest_store_items', JSON.stringify(DEFAULT_ITEMS));
+    }
+    setLoading(false);
+  }, []);
 
   const handlePurchase = async () => {
     if (!selectedItem || !user) return;
-    if (user.role === "GUEST") {
-      setToast('Store operations require a synced account. Please login from the Profile tab.');
-      setTimeout(() => setToast(''), 3000);
-      return;
-    }
-    if (!firebaseUser) return;
+    
     if (user.coins < selectedItem.price) {
       setToast('Insufficient Zenith Coins');
       setTimeout(() => setToast(''), 3000);
@@ -68,22 +46,26 @@ export default function StorePage() {
 
     setPurchaseLoading(true);
     try {
-      // Deduct coins
+      // Deduct coins locally
       const newBalance = user.coins - selectedItem.price;
-      await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        coins: newBalance
-      });
+      const updatedUser = { ...user, coins: newBalance };
+      localStorage.setItem('guest_user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+
       // Save transaction
-      await addDoc(collection(db, 'transactions'), {
-        userId: firebaseUser.uid,
+      const currentTransactions = JSON.parse(localStorage.getItem('guest_transactions') || '[]');
+      const newTx = {
+        id: Date.now().toString(),
+        userId: user.uid,
         itemId: selectedItem.id || selectedItem.itemId,
         itemName: selectedItem.title,
         category: selectedItem.category,
         coinsSpent: selectedItem.price,
         icon: selectedItem.icon,
-        timestamp: serverTimestamp(),
+        timestamp: Date.now(),
         status: 'completed'
-      });
+      };
+      localStorage.setItem('guest_transactions', JSON.stringify([...currentTransactions, newTx]));
 
       setToast(`Successfully purchased ${selectedItem.title}`);
       setSelectedItem(null);

@@ -3,13 +3,13 @@ import { BottomSheet } from "../../components/BottomSheet";
 import { GlassCard, cn } from "../../components/GlassCard";
 import { PremiumButton } from "../../components/PremiumButton";
 import { format } from "date-fns";
-import { dailyCheckIn } from "../../utils/streakLogic";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../components/Toast";
-import { checkAndClaimRank } from "../../utils/rankLogic";
+import { guestDailyCheckIn } from "../../utils/guestLogic";
+import { guestCheckAndClaimRank } from "../../utils/guestRankLogic";
 
 export default function DailyCheckModal({ isOpen, onClose }: any) {
-  const { firebaseUser, user, setUser } = useAuth();
+  const { user, setUser } = useAuth();
   const { showToast } = useToast();
   const [noMast, setNoMast] = useState(true);
   const [noSex, setNoSex] = useState(true);
@@ -19,12 +19,7 @@ export default function DailyCheckModal({ isOpen, onClose }: any) {
     if (!user) return;
     setLoading(true);
     try {
-      if (user.role === "GUEST") {
-        await import("../../utils/guestLogic").then(m => m.guestDailyCheckIn(user, setUser, noMast, noSex));
-      } else {
-        if (!firebaseUser) return;
-        await dailyCheckIn(firebaseUser.uid, noMast, noSex);
-      }
+      await guestDailyCheckIn(user, setUser, noMast, noSex);
       showToast("Checked in successfully!", "success");
 
       // Calculate resulting main streak dynamically or let the next render do it
@@ -36,23 +31,8 @@ export default function DailyCheckModal({ isOpen, onClose }: any) {
         : 0;
       const mainStreak = Math.min(nextMastCount, nextSexCount);
 
-      if (user.role === "GUEST") {
-        await import("../../utils/guestRankLogic").then(m => m.guestCheckAndClaimRank(user, setUser, mainStreak, showToast));
-      } else {
-        if (firebaseUser) {
-          const newRank = await checkAndClaimRank(firebaseUser.uid, mainStreak);
-          if (newRank) {
-            setTimeout(
-              () =>
-                showToast(
-                  `Rank unlocked: ${newRank.label}! +${newRank.coins} coins`,
-                  "reward",
-                ),
-              1000,
-            );
-          }
-        }
-      }
+      await guestCheckAndClaimRank(user, setUser, mainStreak, showToast);
+      
       onClose();
     } catch (err: any) {
       showToast(err.message, "error");
