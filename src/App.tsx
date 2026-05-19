@@ -52,23 +52,18 @@ function ProtectedLayout() {
     );
   }
 
-  if (!firebaseUser) {
+  if (!user && !loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-        <Loader2 className="animate-spin text-blue-500" size={40} />
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4 text-center">
+        <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl max-w-sm">
+          <p className="text-red-400 mb-4">Error initializing user profile. Could not connect to database.</p>
+          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-white/10 rounded-lg text-white">Retry</button>
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-        <Loader2 className="animate-spin text-blue-500" size={40} />
-      </div>
-    );
-  }
-
-  if (!initDone) {
+  if (loading || !firebaseUser || !user || !initDone) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <Loader2 className="animate-spin text-blue-500" size={40} />

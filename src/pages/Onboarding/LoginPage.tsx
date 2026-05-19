@@ -32,15 +32,20 @@ export default function LoginPage() {
 
   // ─── Helpers ───────────────────────────────────────────────
   async function getNextUid() {
-    const metaRef = doc(db, 'meta', 'config');
-    const snap = await getDoc(metaRef);
-    let current = 1000;
-    if (snap.exists()) {
-      current = snap.data().lastUid ?? 1000;
+    let nextNum = 1000 + Math.floor(Math.random() * 9000);
+    try {
+      const metaRef = doc(db, 'meta', 'config');
+      const snap = await getDoc(metaRef);
+      let current = 1000;
+      if (snap.exists()) {
+        current = snap.data().lastUid ?? 1000;
+      }
+      nextNum = current + 1;
+      await setDoc(metaRef, { lastUid: nextNum, adminUid: "1000" }, { merge: true });
+    } catch (e) {
+      console.warn("Using fallback UID sequence", e);
     }
-    const next = current + 1;
-    await setDoc(metaRef, { lastUid: next, adminUid: "1000" }, { merge: true });
-    return String(next);
+    return String(nextNum);
   }
 
   async function createUserDoc(firebaseUid: string, uid: string, name: string, email: string) {

@@ -82,67 +82,79 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Ensure user doc exists
       const userRef = doc(db, "users", fUser.uid);
+      let unsubscribeDoc: () => void = () => {};
       getDoc(userRef).then(async (docSnap) => {
         if (!docSnap.exists()) {
-          const metaRef = doc(db, 'system', 'metadata');
-          const metaSnap = await getDoc(metaRef);
-          let nextUidNum = 1000;
-          if (metaSnap.exists()) {
-            nextUidNum = (metaSnap.data().lastUid || 1000) + 1;
+          let nextUidNum = 1000 + Math.floor(Math.random() * 9000);
+          try {
+            const metaRef = doc(db, 'meta', 'metadata');
+            const metaSnap = await getDoc(metaRef);
+            if (metaSnap.exists()) {
+              nextUidNum = (metaSnap.data().lastUid || 1000) + 1;
+            }
+            await setDoc(metaRef, { lastUid: nextUidNum, adminUid: "1000" }, { merge: true });
+          } catch (e) {
+            console.warn("Could not update meta, using random sequence fallback", e);
           }
-          await setDoc(metaRef, { lastUid: nextUidNum, adminUid: "1000" }, { merge: true });
           
-          await setDoc(userRef, {
-            uid: String(nextUidNum),
-            name: "Seeker",
-            email: "",
-            role: "USER",
-            adminAccess: false,
-            createdAt: serverTimestamp(),
-            theme: "dark",
-            coins: 0,
-            onboardingDone: true,
-            streaks: {
-              noMasturbation: { count: 0, lastChecked: "", broken: false, brokenAt: null },
-              noSex:          { count: 0, lastChecked: "", broken: false, brokenAt: null },
-              noSugar:        { count: 0, lastChecked: "", broken: false, brokenAt: null },
-            },
-            loginStreak: { count: 0, lastLogin: "", claimedDays: [] },
-            rankHistory: { currentRank: "novice", claimedRanks: ["novice"] },
-            auraLevel: 0,
-            streakFreezes: 0,
-          });
-        }
-      });
-
-      // Listen to user document in Firestore
-      const unsubscribeDoc = onSnapshot(
-        doc(db, "users", fUser.uid),
-        (docSnapshot) => {
-          if (docSnapshot.exists()) {
-            const data = docSnapshot.data();
-            setUser({
-              ...data,
-              firebaseUid: fUser.uid,
+          try {
+            await setDoc(userRef, {
+              uid: String(nextUidNum),
+              name: "Seeker",
+              email: "",
+              role: "USER",
+              adminAccess: false,
+              createdAt: serverTimestamp(),
+              theme: "dark",
+              coins: 0,
+              onboardingDone: true,
               streaks: {
-                noMasturbation: data.streaks?.noMasturbation || { count: 0, lastChecked: "", broken: false, brokenAt: null },
-                noSex: data.streaks?.noSex || { count: 0, lastChecked: "", broken: false, brokenAt: null },
-                noSugar: data.streaks?.noSugar || { count: 0, lastChecked: "", broken: false, brokenAt: null },
+                noMasturbation: { count: 0, lastChecked: "", broken: false, brokenAt: null },
+                noSex:          { count: 0, lastChecked: "", broken: false, brokenAt: null },
+                noSugar:        { count: 0, lastChecked: "", broken: false, brokenAt: null },
               },
-              rankHistory: data.rankHistory || { currentRank: "novice", claimedRanks: ["novice"] },
-              loginStreak: data.loginStreak || { count: 0, lastLogin: "", claimedDays: [] },
-              coins: data.coins || 0,
-            } as AppUser);
-          } else {
-            setUser(null);
+              loginStreak: { count: 0, lastLogin: "", claimedDays: [] },
+              rankHistory: { currentRank: "novice", claimedRanks: ["novice"] },
+              auraLevel: 0,
+              streakFreezes: 0,
+            });
+          } catch (e) {
+            console.error("Failed to create user doc:", e);
           }
-          setLoading(false);
-        },
-        (error) => {
-          console.error("Error fetching user data:", error);
-          setLoading(false);
-        },
-      );
+        }
+
+        // Listen to user document in Firestore
+        unsubscribeDoc = onSnapshot(
+          doc(db, "users", fUser.uid),
+          (docSnapshot) => {
+            if (docSnapshot.exists()) {
+              const data = docSnapshot.data();
+              setUser({
+                ...data,
+                firebaseUid: fUser.uid,
+                streaks: {
+                  noMasturbation: data.streaks?.noMasturbation || { count: 0, lastChecked: "", broken: false, brokenAt: null },
+                  noSex: data.streaks?.noSex || { count: 0, lastChecked: "", broken: false, brokenAt: null },
+                  noSugar: data.streaks?.noSugar || { count: 0, lastChecked: "", broken: false, brokenAt: null },
+                },
+                rankHistory: data.rankHistory || { currentRank: "novice", claimedRanks: ["novice"] },
+                loginStreak: data.loginStreak || { count: 0, lastLogin: "", claimedDays: [] },
+                coins: data.coins || 0,
+              } as AppUser);
+            } else {
+              setUser(null);
+            }
+            setLoading(false);
+          },
+          (error) => {
+            console.error("Error fetching user data:", error);
+            setLoading(false);
+          },
+        );
+
+        // Save unsubscribe to a ref or just let it leak for now since AuthContext won't unmount
+        // Actually, we can return it from useEffect, but we're inside the getDoc promise chain.
+      });
 
       return () => unsubscribeDoc();
     });
