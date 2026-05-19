@@ -171,13 +171,15 @@ export default function ProfilePage() {
           label="App Version"
           right={<span className="text-[13px]">v1.0.0</span>}
         />
-        <SettingRow
-          icon={<LogOut size={20} />}
-          label="Sign Out"
-          right={<ChevronRight size={18} />}
-          onClick={handleSignOut}
-          danger
-        />
+        {user.email && (
+          <SettingRow
+            icon={<LogOut size={20} />}
+            label="Sign Out"
+            right={<ChevronRight size={18} />}
+            onClick={handleSignOut}
+            danger
+          />
+        )}
 
         {user.role === 'SUPER_ADMIN' && user.adminAccess && (
           <div className="mt-6 mb-4">

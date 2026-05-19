@@ -53,7 +53,11 @@ function ProtectedLayout() {
   }
 
   if (!firebaseUser) {
-    return <Navigate to="/login" replace />;
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-500" size={40} />
+      </div>
+    );
   }
 
   if (!user) {
