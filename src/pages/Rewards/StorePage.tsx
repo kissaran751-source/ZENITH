@@ -53,7 +53,13 @@ export default function StorePage() {
   }, [firebaseUser]);
 
   const handlePurchase = async () => {
-    if (!selectedItem || !user || !firebaseUser) return;
+    if (!selectedItem || !user) return;
+    if (user.role === "GUEST") {
+      setToast('Store operations require a synced account. Please login from the Profile tab.');
+      setTimeout(() => setToast(''), 3000);
+      return;
+    }
+    if (!firebaseUser) return;
     if (user.coins < selectedItem.price) {
       setToast('Insufficient Zenith Coins');
       setTimeout(() => setToast(''), 3000);

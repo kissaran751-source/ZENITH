@@ -84,6 +84,15 @@ export async function dailyCheckIn(
   noMasturbation: boolean,
   noSex: boolean,
 ) {
+  if (firebaseUid === "guest") {
+    // We will handle guest logic directly in the components through context updates for simplicity.
+    // Instead of throwing an error, we can just return, but we want the UI components to know it's a guest
+    // and update React Context directly. Wait! The components call these functions directly!
+    // So if it's guest, throw a special error so the component can handle it?
+    // Or we export `dailyCheckInGuest`?
+    return false; // Not handled here
+  }
+
   const today = getTodayStr();
   const userRef = doc(db, "users", firebaseUid);
   const logRef = doc(db, "users", firebaseUid, "dailyLogs", today);

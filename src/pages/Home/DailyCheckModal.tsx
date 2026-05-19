@@ -9,38 +9,49 @@ import { useToast } from "../../components/Toast";
 import { checkAndClaimRank } from "../../utils/rankLogic";
 
 export default function DailyCheckModal({ isOpen, onClose }: any) {
-  const { firebaseUser, user } = useAuth();
+  const { firebaseUser, user, setUser } = useAuth();
   const { showToast } = useToast();
   const [noMast, setNoMast] = useState(true);
   const [noSex, setNoSex] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const handleConfirm = async () => {
-    if (!firebaseUser) return;
+    if (!user) return;
     setLoading(true);
     try {
-      await dailyCheckIn(firebaseUser.uid, noMast, noSex);
+      if (user.role === "GUEST") {
+        await import("../../utils/guestLogic").then(m => m.guestDailyCheckIn(user, setUser, noMast, noSex));
+      } else {
+        if (!firebaseUser) return;
+        await dailyCheckIn(firebaseUser.uid, noMast, noSex);
+      }
       showToast("Checked in successfully!", "success");
 
       // Calculate resulting main streak dynamically or let the next render do it
       const nextMastCount = noMast
-        ? user?.streaks.noMasturbation.broken ? 1 : (user?.streaks.noMasturbation.count || 0) + 1
+        ? user.streaks.noMasturbation.broken ? 1 : (user.streaks.noMasturbation.count || 0) + 1
         : 0;
       const nextSexCount = noSex 
-        ? user?.streaks.noSex.broken ? 1 : (user?.streaks.noSex.count || 0) + 1 
+        ? user.streaks.noSex.broken ? 1 : (user.streaks.noSex.count || 0) + 1 
         : 0;
       const mainStreak = Math.min(nextMastCount, nextSexCount);
 
-      const newRank = await checkAndClaimRank(firebaseUser.uid, mainStreak);
-      if (newRank) {
-        setTimeout(
-          () =>
-            showToast(
-              `Rank unlocked: ${newRank.label}! +${newRank.coins} coins`,
-              "reward",
-            ),
-          1000,
-        );
+      if (user.role === "GUEST") {
+        await import("../../utils/guestRankLogic").then(m => m.guestCheckAndClaimRank(user, setUser, mainStreak, showToast));
+      } else {
+        if (firebaseUser) {
+          const newRank = await checkAndClaimRank(firebaseUser.uid, mainStreak);
+          if (newRank) {
+            setTimeout(
+              () =>
+                showToast(
+                  `Rank unlocked: ${newRank.label}! +${newRank.coins} coins`,
+                  "reward",
+                ),
+              1000,
+            );
+          }
+        }
       }
       onClose();
     } catch (err: any) {

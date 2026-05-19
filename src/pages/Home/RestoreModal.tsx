@@ -30,6 +30,10 @@ export default function RestoreModal({ isOpen, onClose }: any) {
     type: "noMasturbation" | "noSex" | "noSugar" | "both",
     cost: number,
   ) => {
+    if (user.role === "GUEST") {
+      showToast("Store operations require a synced account. Please login from the Profile tab.", "error");
+      return;
+    }
     if (!firebaseUser) return;
     if (confirm(`Spend ${cost} coins to restore this streak?`)) {
       setLoading(true);

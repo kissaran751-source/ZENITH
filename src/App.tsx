@@ -25,15 +25,20 @@ import { handleUnclaimedGifts } from "./utils/coinLogic";
 import { isFirebaseConfigured, auth } from "./firebase";
 
 function ProtectedLayout() {
-  const { user, firebaseUser, loading } = useAuth();
+  const { user, firebaseUser, loading, setUser } = useAuth();
   const [initDone, setInitDone] = useState(false);
 
   useEffect(() => {
-    if (user && firebaseUser) {
+    if (user) {
       const initInfo = async () => {
         try {
-          await midnightStreakCheck(firebaseUser.uid);
-          await handleUnclaimedGifts(user.uid, firebaseUser.uid);
+          if (firebaseUser) {
+            await midnightStreakCheck(firebaseUser.uid);
+            await handleUnclaimedGifts(user.uid, firebaseUser.uid);
+          } else {
+            // Local guest check
+            await import('./utils/guestLogic').then(m => m.guestMidnightStreakCheck(user, setUser));
+          }
         } catch (error) {
           console.error("Error during initialization:", error);
         } finally {
@@ -56,14 +61,15 @@ function ProtectedLayout() {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4 text-center">
         <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl max-w-sm">
-          <p className="text-red-400 mb-4">Error initializing user profile. Could not connect to database.</p>
+          <p className="text-red-400 mb-4">Error initializing user profile.</p>
+          <p className="text-red-300 text-sm mb-4">{window.localStorage.getItem('auth_error') || 'Could not connect to database.'}</p>
           <button onClick={() => window.location.reload()} className="px-4 py-2 bg-white/10 rounded-lg text-white">Retry</button>
         </div>
       </div>
     );
   }
 
-  if (loading || !firebaseUser || !user || !initDone) {
+  if (loading || !user || !initDone) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <Loader2 className="animate-spin text-blue-500" size={40} />

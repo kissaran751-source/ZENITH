@@ -88,7 +88,7 @@ export default function ProfilePage() {
         <div className="text-[14px] text-white/50 mt-1">UID: {user.uid}</div>
         <div className="text-[13px] text-white/40 mt-1">
           Member since{" "}
-          {format(user.createdAt?.toDate() || new Date(), "MMMM yyyy")}
+          {format(user.createdAt?.toDate ? user.createdAt.toDate() : new Date(user.createdAt || Date.now()), "MMMM yyyy")}
         </div>
 
         {user.email ? (

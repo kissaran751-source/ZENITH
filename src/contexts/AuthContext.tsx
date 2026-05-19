@@ -51,18 +51,30 @@ interface AuthContextType {
   user: AppUser | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
+  setUser: (user: AppUser | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   firebaseUser: null,
   loading: true,
+  setUser: () => {},
 });
+
+import { getGuestUser, saveGuestUser } from "../utils/guestLogic";
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Expose a wrapped setUser that also saves to localStorage if guest
+  const handleSetUser = (newUser: AppUser | null) => {
+    setUser(newUser);
+    if (newUser && newUser.role === "GUEST") {
+      saveGuestUser(newUser);
+    }
+  };
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
@@ -73,10 +85,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (fUser) => {
       setFirebaseUser(fUser);
       if (!fUser) {
-        signInAnonymously(auth).catch((error) => {
-          console.error("Anonymous authentication failed", error);
-          setLoading(false);
-        });
+        // GUEST MODE!
+        handleSetUser(getGuestUser());
+        setLoading(false);
         return;
       }
 
@@ -148,6 +159,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           },
           (error) => {
             console.error("Error fetching user data:", error);
+            window.localStorage.setItem('auth_error', error.message || String(error));
             setLoading(false);
           },
         );
@@ -163,7 +175,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading }}>
+    <AuthContext.Provider value={{ user, firebaseUser, loading, setUser: handleSetUser }}>
       {children}
     </AuthContext.Provider>
   );

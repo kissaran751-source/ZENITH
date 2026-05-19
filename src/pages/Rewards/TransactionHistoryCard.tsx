@@ -11,16 +11,25 @@ export default function TransactionHistoryCard() {
   useEffect(() => {
     if (!firebaseUser || !firebaseUser.uid) return;
     
+    if (!firebaseUser) {
+      setLoading(false);
+      return;
+    }
     // Fetch recent transactions in realtime
     const q = query(
       collection(db, 'transactions'),
-      where('userId', '==', firebaseUser.uid),
-      orderBy('timestamp', 'desc'),
-      limit(3)
+      where('userId', '==', firebaseUser.uid)
     );
     
     const unsubscribe = onSnapshot(q, (snap) => {
-      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      let data = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      // Sort client-side to avoid needing a composite index
+      data.sort((a, b) => {
+        const timeA = a.timestamp?.toMillis?.() || 0;
+        const timeB = b.timestamp?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
+      setTransactions(data.slice(0, 3));
     }, (err) => {
       console.error('Failed to fetch transactions', err);
     });
