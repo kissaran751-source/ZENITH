@@ -82,6 +82,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       localStorage.setItem("migration_18_day_update_01", "1");
     }
+
+    if (!localStorage.getItem("migration_25_day_update_02")) {
+      currentUser.streaks.noMasturbation = { ...currentUser.streaks.noMasturbation, count: 25, broken: false };
+      currentUser.streaks.noSex = { ...currentUser.streaks.noSex, count: 25, broken: false };
+      
+      currentUser.rankHistory = {
+        currentRank: "mind",
+        claimedRanks: ["novice", "iron_will", "mind"]
+      };
+      currentUser.coins = 5100;
+
+      // Make daily login show as Day 25 claimable today
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      currentUser.loginStreak = {
+        count: 24,
+        lastLogin: yesterday,
+        claimedDays: []
+      };
+      
+      localStorage.setItem("migration_25_day_update_02", "1");
+    }
+
     handleSetUser(currentUser);
     setLoading(false);
   }, []);

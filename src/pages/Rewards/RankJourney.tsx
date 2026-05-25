@@ -115,7 +115,10 @@ function formatNum(n: number) {
 
 export default function RankJourney({ user }: any) {
   const [expanded, setExpanded] = useState(false);
-  const mainStreak   = user?.streaks?.noSugar?.count ?? 0;
+  const mainStreak = Math.min(
+    user?.streaks?.noMasturbation?.count ?? 0,
+    user?.streaks?.noSex?.count ?? 0
+  );
   const claimedRanks = user?.rankHistory?.claimedRanks ?? [];
 
   // Current active rank

@@ -20,7 +20,10 @@ export default function AICoachCard({ user }: any) {
     if (!canGen || loading) return;
     setLoading(true);
     try {
-      const streak = user?.streaks?.noSugar?.count ?? 0;
+      const streak = Math.min(
+        user?.streaks?.noMasturbation?.count ?? 0,
+        user?.streaks?.noSex?.count ?? 0
+      );
       const coins  = user?.coins ?? 0;
       const rank   = user?.rankHistory?.currentRank ?? 'novice';
 
